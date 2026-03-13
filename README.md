@@ -50,40 +50,41 @@ Bullet_Direction *__fastcall fn_Calculate_Bullet_Direction(
         char a7,
         char a8)
 {
-  direction_out->pos_origin    = *start_pos;
-  direction_out->pos_origin_w  = start_pos[1].x;
-  direction_out->pos_current   = *start_pos;
+  float direction_pos_y; // xmm0_4
+  float direction_pos_x; // xmm3_4
+  float direction_pos_z; // xmm2_4
+  float inv_len; // xmm0_4
+  float v14; // xmm1_4
+  int v16; // [rsp+2Ch] [rbp-Ch]
+
+  direction_out->pos_origin = *start_pos;
+  direction_out->pos_origin_w = start_pos[1].x;
+  direction_out->pos_current = *start_pos;
   direction_out->pos_current_w = start_pos[1].x;
-  direction_out->flags    &= 0xF8u;
-  direction_out->param_a6  = a6;
-  direction_out->flags    |= 2 * (a7 & 1 | (2 * (a8 & 1)));
-
-  float direction_pos_y = end_pos->y - start_pos->y;
-  float direction_pos_x = end_pos->x - start_pos->x;
-  float direction_pos_z = end_pos->z - start_pos->z;
-
+  direction_out->flags &= 0xF8u;
+  direction_out->param_a6 = a6;
+  direction_out->flags |= 2 * (a7 & 1 | (2 * (a8 & 1)));
+  direction_pos_y = end_pos->y - start_pos->y;
+  direction_pos_x = end_pos->x - start_pos->x;
+  direction_pos_z = end_pos->z - start_pos->z;
   direction_out->velocity.y = direction_pos_y;
   direction_out->velocity.x = direction_pos_x;
   direction_out->velocity.z = direction_pos_z;
-  direction_out->unk = v16;
-
-  float distance = get_distance_from_localPlayer(
-      (direction_pos_y * direction_pos_y) +
-      (direction_pos_x * direction_pos_x) +
-      (direction_pos_z * direction_pos_z));
-
-  direction_out->velocity.x = (distance * direction_out->velocity.x) * speed;
-  direction_out->velocity.z = (direction_out->velocity.z * distance) * speed;
-  direction_out->velocity.y = (direction_out->velocity.y * distance) * speed;
-  direction_out->unk1 = *(_DWORD *)(a2 + 0x110);
+  direction_out->unk_2C = v16;
+  inv_len = rsqrt(
+              (float)((float)(direction_pos_y * direction_pos_y) + (float)(direction_pos_x * direction_pos_x))
+            + (float)(direction_pos_z * direction_pos_z));
+  direction_out->velocity.x = (float)(inv_len * direction_out->velocity.x) * speed;
+  v14 = inv_len * direction_out->velocity.y;
+  direction_out->velocity.z = (float)(inv_len * direction_out->velocity.z) * speed;
+  direction_out->velocity.y = v14 * speed;
+  direction_out->unknown = *(_DWORD *)(a2 + 0x110);
   return direction_out;
 }
 ```
 
-This function takes a `start_pos` and `end_pos` and computes a normalized
-velocity vector scaled by `speed`. The `pos_origin` and `pos_current` fields
-are both initialized to `start_pos` — origin stays fixed as a reference while
-current gets updated each physics tick.
+This function takes a start_pos and end_pos and computes a normalized velocity vector scaled by speed. The pos_origin and pos_current fields are both initialized to start_pos — origin stays fixed as a reference while current gets updated each physics tick.
+The direction vector is computed as the difference between end_pos and start_pos. Normalization is done via rsqrt (reciprocal square root of the squared magnitude), which is then multiplied directly into each velocity component alongside speed. The intermediate v14 is just a temporary register holding the scaled Y velocity before the final speed multiply.
 
 Now lets look at how this function is called:
 ```cpp
