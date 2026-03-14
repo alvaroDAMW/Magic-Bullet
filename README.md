@@ -26,6 +26,47 @@ not be covered here — there are plenty of resources on those topics already.
 ## 1. Reverse Engineering the bullet system
 
 First, lets take a look at the function responsible for calculating the bullet direction:
+
+### Original function
+
+```cpp
+__int64 __fastcall sub_101A5F4(__int64 a1, __int64 a2, float *a3, float *a4, float a5, int a6, char a7, char a8)
+{
+  float v10; // xmm3_4
+  float v11; // xmm2_4
+  double v12; // xmm0_8
+  float v13; // xmm1_4
+  int v15; // [rsp+2Ch] [rbp-Ch]
+
+  *(float *)a1 = *a3;
+  *(float *)(a1 + 4) = a3[1];
+  *(float *)(a1 + 8) = a3[2];
+  *(float *)(a1 + 12) = a3[3];
+  *(float *)(a1 + 16) = *a3;
+  *(float *)(a1 + 20) = a3[1];
+  *(float *)(a1 + 24) = a3[2];
+  *(float *)(a1 + 28) = a3[3];
+  *(_BYTE *)(a1 + 56) &= 0xF8u;
+  *(_DWORD *)(a1 + 52) = a6;
+  *(_BYTE *)(a1 + 56) |= 2 * (a7 & 1 | (2 * (a8 & 1)));
+  v10 = *a4 - *a3;
+  v11 = a4[2] - a3[2];
+  *(float *)(a1 + 36) = a4[1] - a3[1];
+  *(float *)(a1 + 32) = v10;
+  *(float *)(a1 + 40) = v11;
+  *(_DWORD *)(a1 + 44) = v15;
+  v12 = sub_1324DC8();
+  *(float *)(a1 + 32) = (float)(*(float *)&v12 * *(float *)(a1 + 32)) * a5;
+  v13 = *(float *)&v12 * *(float *)(a1 + 36);
+  *(float *)(a1 + 40) = (float)(*(float *)&v12 * *(float *)(a1 + 40)) * a5;
+  *(float *)(a1 + 36) = v13 * a5;
+  *(_DWORD *)(a1 + 48) = *(_DWORD *)(a2 + 272);
+  return a1;
+}
+```
+
+### My interpretation
+
 ```cpp
 struct Bullet_Direction
 {
