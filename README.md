@@ -194,8 +194,7 @@ There are many ways to find a code cave — you can browse the module manually i
 debugger, or write a scanner that iterates over the module looking for a run of
 null bytes and returns the offset and size of the region.
 
-Since our shellcode lives inside the game module itself, it is indistinguishable
-from legitimate code as far as memory scanners are concerned.
+Because the shellcode resides inside the game module itself, the jump simply targets a legitimate region of the module, making it less likely to be flagged as suspicious.
 
 ---
 
