@@ -178,11 +178,11 @@ Instead, we will manipulate the game byte by byte using a **code cave**.
 ## 2. The code cave approach
 
 You might think the natural solution is to allocate virtual memory in the process
-and execute our shellcode there — but this is easily detected. Common detections include:
+and execute our shellcode there. However, this approach has drawbacks.
 
-- **Stack walking** — detecting return addresses pointing outside legitimate game memory
-- **Non-legitimate memory region jumps** — any `jmp` landing outside the game module is flagged
-- **Indirect jump size** — jumping to allocated memory requires 16 bytes, which overwrites too many instructions
+Jumping to externally allocated memory requires larger patches and results in
+execution flow leaving the game's module entirely, which is generally less ideal
+from a stealth perspective.
 
 This is where code caves come in. A **code cave** is a region of memory inside
 the game's own module that is completely empty (filled with null bytes) and already
@@ -194,7 +194,9 @@ There are many ways to find a code cave — you can browse the module manually i
 debugger, or write a scanner that iterates over the module looking for a run of
 null bytes and returns the offset and size of the region.
 
-Because the shellcode resides inside the game module itself, the jump simply targets a legitimate region of the module, making it less likely to be flagged as suspicious.
+Because the shellcode resides inside the game module itself, the jump simply
+targets another legitimate region of the module, making the control flow appear
+more natural.
 
 ---
 
@@ -507,8 +509,8 @@ buffers, and conditionally patching the target function at runtime.
 
 The technique is effective precisely because it operates entirely within the
 game module's own memory space. There is no allocated memory, no suspicious
-`jmp` to an external region, and no loaded DLL — from the perspective of a
-naive memory scanner, nothing looks out of place.
+`jmp` to an external region, and no loaded DLL — from the perspective of the program's
+execution flow, nothing unusual stands out.
 
 On the defensive side, the companion code demonstrates that the technique is
 far from undetectable. Hashing the `.text` section and individual code caves
