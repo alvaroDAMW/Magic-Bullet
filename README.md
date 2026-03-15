@@ -133,8 +133,8 @@ bullet_direction = fn_Calculate_Bullet_Direction(
     v28, *(_QWORD *)(a1 + 56), start_pos, end_pos, speed, a9, a10, a15);
 ```
 
-The `start_pos` and `end_pos` are already calculated before reaching this point,
-so we need to trace back further. Looking at cross-references to `fn_shoot_wrapper`
+The `start_pos` and `end_pos` are already calculated before reaching this point, and since we are not hooking at the first byte of the function
+we need to trace back further. Looking at cross-references to `fn_Calculate_Bullet_Direction`
 we find the actual caller:
 ```cpp
 bullet_origin  = bullet_origin_calc;
@@ -148,10 +148,14 @@ if (weapon_type >= 2) {
             (PVec3)&start_pos, (__int32 *)&endpos);
 
     if (weapon_type == 4)   // Throwables and rockets
-        return throwable_weapon_shoot_wrapper(
-            (__m128 *)Weapon_handler_ptr, (__int64)camera_information,
-            (PVec3)&start_pos, (PVec3)&endpos);
+         // Challenge: this function behaves differently from the standard weapon shoot routine.
+         // The method used for normal weapons will not work for rockets. Reverse this function
+         // and implement your own way to hijack or override the shoot vectors.
+         return throwable_weapon_shoot_wrapper(
+             (__m128 *)Weapon_handler_ptr, (__int64)camera_information,
+             (PVec3)&start_pos, (PVec3)&endpos);
 }
+       
 ```
 
 In assembly, right before the call:
@@ -197,7 +201,7 @@ from legitimate code as far as memory scanners are concerned.
 
 ## 3. Mapping the shellcode
 
-We will use three separate regions inside the module:
+We will use three separate regions within the module; the offsets used here may differ depending on the game build.
 
 | Offset | Purpose |
 |--------|---------|
@@ -226,8 +230,8 @@ offset, the RIP-relative operands of both `lea` instructions resolve to exactly
 our two buffers:
 ```cpp
 std::vector<uint8_t> magicBulletFunc{
-    0x4C, 0x8D, 0x0D, 0x9F, 0xFF, 0xFF, 0xFF,  // lea r9, [rip-0x61] → modulebase+0x500
-    0x4C, 0x8D, 0x05, 0xA8, 0xFF, 0xFF, 0xFF,  // lea r8, [rip-0x58] → modulebase+0x510
+    0x4C, 0x8D, 0x0D, 0x9F, 0xFF, 0xFF, 0xFF,  // lea r9, [rip-0x61] → resolves to modulebase+0x500 (RIP = modulebase+0x55A + instruction length (7))
+    0x4C, 0x8D, 0x05, 0xA8, 0xFF, 0xFF, 0xFF,  // lea r8, [rip-0x58] → resolves to modulebase+0x510 (RIP = modulebase+0x561 + instruction length (7))
     0xE9                                        // jmp rel32 (back to original function)
 };
 ```
