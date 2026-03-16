@@ -191,7 +191,7 @@ has execution permissions. Here is an example of how one looks in a debugger:
 ![code cave example](images/codecave_example.png)
 
 There are many ways to find a code cave — you can browse the module manually in a
-debugger, or write a scanner that iterates over the module looking for a run of
+debugger, or write an algorithm that iterates over the module looking for a run of
 null bytes and returns the offset and size of the region.
 
 Because the shellcode resides inside the game module itself, the jump simply
@@ -390,48 +390,32 @@ mismatch for that specific region — even if the rest of `.text` were somehow
 left untouched. This gives a much more targeted signal:
 
 ```
-[!] A Modified code cave was found
+"[!] Code cave content was modified — possible shellcode injection!\n"
 ```
 
 The attacker cannot avoid this: by definition, the code cave technique requires
 writing non-zero bytes into a previously null region.
 
 ### 5.3 — Module Integrity via PE Header Parsing
-
-Before scanning for caves or hashing sections we first parse the PE headers
-to locate the exact boundaries of each section:
-
+Before analyzing caves or hashing sections we first parse the PE headers to locate the exact boundaries of each section:
 ```cpp
-auto nt_headers    = get_headers(data.data());
+auto nt_headers     = get_headers(data.data());
 auto target_section = get_section_by_name(nt_headers, ".text");
 ```
-
-This means the scanner is not guessing at offsets — it reads `VirtualAddress`
-and `SizeOfRawData` directly from the `IMAGE_SECTION_HEADER`, so it stays correct
-even across game updates that shift code around. Any tool that skips this step
-and hardcodes offsets will silently miss modifications after a patch.
+This means the tool is not guessing at offsets — it reads `VirtualAddress` and `SizeOfRawData` directly from the `IMAGE_SECTION_HEADER`, so it stays correct even across game updates that shift code around. Any tool that skips this step and hardcodes offsets will silently miss modifications after a patch.
 
 ### 5.4 — Snapshot-Based Comparison
-
-Rather than storing only a single baseline hash, a more robust design takes a
-full memory snapshot of the module at a trusted point in time (ideally before
-any third-party code has had a chance to run) and compares it byte-by-byte on
-demand. This lets you report the exact offset of the first differing byte,
-which is useful for forensics and for identifying *which* patch was applied.
+Rather than storing only a single baseline hash, a more robust design takes a full memory snapshot of the module at a trusted point in time (ideally before any third-party code has had a chance to run) and compares it byte-by-byte on demand. This lets you report the exact offset of the first differing byte, which is useful for forensics and for identifying *which* patch was applied.
 
 ### 5.5 — What these detections catch and what they miss
-
 | Detection | Catches our technique | Limitation |
-|-----------|----------------------|------------|
+|---|---|---|
 | `.text` hash | Yes — 5 patched bytes change the hash | Hash only; no location info |
-| Code cave hash | Yes — shellcode fills null region | Requires cave scanner to be correct |
+| Code cave hash | Yes — shellcode fills null region | Requires cave analysis to be correct |
 | PE-based section scan | Yes — locates exact modified section | Needs to run before attacker patches |
 | Byte-by-byte snapshot | Yes — pinpoints exact offset | Memory cost; needs trusted baseline |
 
-No client-side detection is foolproof. A sufficiently motivated attacker can patch
-the detection code itself, run before the scanner initializes, or restore original
-bytes between polling intervals. This is why **server-side validation is essential**
-and discussed in the next section.
+No client-side detection is foolproof. A sufficiently motivated attacker can patch the detection code itself, run before the tool initializes, or restore original bytes between polling intervals. This is why **server-side validation is essential** and discussed in the next section.
 
 ---
 
