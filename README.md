@@ -71,9 +71,9 @@ __int64 __fastcall sub_101A5F4(__int64 a1, __int64 a2, float *a3, float *a4, flo
 struct Bullet_Direction
 {
     _vec3   pos_origin;
-    float   pos_origin_w;
+    float   pos_origin_x;
     _vec3   pos_current;
-    float   pos_current_w;
+    float   pos_current_x;
     _vec3   velocity;
     int     unk;
     int     unk1;
@@ -99,9 +99,9 @@ Bullet_Direction *__fastcall fn_Calculate_Bullet_Direction(
   int v16; // [rsp+2Ch] [rbp-Ch]
 
   direction_out->pos_origin = *start_pos;
-  direction_out->pos_origin_w = start_pos[1].x;
+  direction_out->pos_origin_x = start_pos[1].x;
   direction_out->pos_current = *start_pos;
-  direction_out->pos_current_w = start_pos[1].x;
+  direction_out->pos_current_x = start_pos[1].x;
   direction_out->flags &= 0xF8u;
   direction_out->param_a6 = a6;
   direction_out->flags |= 2 * (a7 & 1 | (2 * (a8 & 1)));
@@ -441,36 +441,14 @@ with an origin that is nowhere near the local player, aimed towards the target's
 feet rather than from the shooter's perspective.
 
 ### What the server should validate
-
-**1. Origin plausibility** — The reported bullet origin must be within a small
-radius of the shooter's last known server-side position. A bullet originating
-5 metres inside an enemy's head is impossible under normal gameplay.
-
-**2. Direction plausibility** — The vector from origin to impact must be
-consistent with the shooter's camera angles as reported by the client. A large
-angular deviation (e.g., the bullet travelling *downward* into a player's feet
-from an origin that is *above* them on the same model) is a strong signal.
-
-**3. Impact position vs. trajectory** — The server can re-simulate the projectile
-from the validated origin along the validated direction and check that the impact
-point is reachable. If the client reports a hit at a position that the server's
-simulation cannot reach from the claimed origin, the hit should be rejected.
-
-**4. Fire rate** — Magic bullet implementations typically fire once per valid
-target per cheat loop iteration. Validating that the fire rate does not exceed
-the weapon's maximum RPM catches unsophisticated implementations.
-
-### Trust hierarchy
-
-```
-Client reports hit
+The correct architecture is authoritative: the client should never report hits at all. Instead:
+Client fires weapon
        ↓
-Server validates origin, direction, and impact
-       ↓
-If inconsistent → reject hit, log anomaly, flag account
-       ↓
-If consistent  → apply damage
-```
+Server runs the full bullet simulation independently
+
+Server determines hit/miss, applies damage, returns result to client
+The client's only role is to report inputs — not outcomes. Hit registration, damage application, and trajectory simulation live entirely server-side.
+Under this model, the magic bullet technique becomes useless. It doesn't matter what the shellcode writes into R8 and R9 — the server ignores the client's claimed impact entirely and computes its own. The attacker would need to compromise the server itself to affect the outcome.
 
 The key insight is that **the server should never trust hit registration data
 sent by the client without independent verification**. The client is an untrusted
@@ -485,7 +463,6 @@ which removes most of the technique's advantage.
 ---
 
 ## 7. Conclusion
-
 This writeup walked through the full lifecycle of a magic bullet implementation:
 from reverse engineering the bullet direction system, to locating a viable code
 cave, building and mapping shellcode that redirects `R8`/`R9` to controlled
@@ -493,8 +470,8 @@ buffers, and conditionally patching the target function at runtime.
 
 The technique is effective precisely because it operates entirely within the
 game module's own memory space. There is no allocated memory, no suspicious
-`jmp` to an external region, and no loaded DLL — from the perspective of the program's
-execution flow, nothing unusual stands out.
+`jmp` to an external region, and no loaded DLL — from the perspective of the
+program's execution flow, nothing unusual stands out.
 
 On the defensive side, the companion code demonstrates that the technique is
 far from undetectable. Hashing the `.text` section and individual code caves
@@ -505,10 +482,11 @@ the same level of understanding of the underlying mechanics as the exploit
 itself — surface-level checks are trivially bypassed.
 
 Ultimately, however, no amount of client-side hardening fully closes the gap.
-The attacker controls the hardware, the OS, and every process running on it.
 Any check that executes on the client can be neutralized by someone with
-sufficient access. **Server-side validation of bullet physics is the only
-layer of defense that the attacker cannot patch away.** A server that
-independently verifies origin plausibility, trajectory consistency, and impact
-position reduces the entire client-side attack surface to a secondary concern —
-useful for telemetry and banning, but no longer the last line of defense.
+sufficient access. **The only layer of defense the attacker cannot patch away
+is an authoritative server that runs the bullet simulation itself.** When the
+client's role is reduced to sending inputs — origin, direction, weapon,
+timestamp — and the server independently determines the outcome, the entire
+class of hit-manipulation exploits becomes irrelevant. It does not matter what
+the shellcode writes into `R8` and `R9` if the server never reads those values
+in the first place.
