@@ -220,44 +220,67 @@ bool compare_hashes(std::vector<std::vector<UINT8>> original_hashes, std::vector
 	return false;
 }
 
+
 int main()
 {
 	if (!inicialite()) return 0;
 	printf("[+] Process id: %d\n[+] Module base: %llu\n[+] Module size: %llu\n", processId, moduleBase, module_size);
+
 	std::vector<uint8_t> data(module_size);
-	DWORD bytes_readed = 0;
+
 	if (!read_buffer(moduleBase, data.data(), module_size))
 	{
 		printf("Reading module data failed\n");
 		return 0;
-	};
+	}
 
 	auto nt_headers = get_headers(data.data());
 	auto target_section = get_section_by_name(nt_headers, ".text");
-	auto original_caves = find_codecave(data.data(), module_size);
 
+	auto original_caves = find_codecave(data.data(), module_size);
 	auto original_code_cave_hashes = generate_caves_hashes(original_caves);
 
-	printf("Found .text section, VA: %llu, size: %llu\n", target_section->VirtualAddress, target_section->SizeOfRawData);
+	printf("[+] Found %zu code caves initially\n", original_caves.size());
+	printf("[+] Found .text section, VA: %llu, size: %llu\n",
+		target_section->VirtualAddress, target_section->SizeOfRawData);
 
 	std::vector<uint8_t> section_memory_chunk(target_section->SizeOfRawData);
-	memcpy(section_memory_chunk.data(), reinterpret_cast<void*>(data.data() + target_section->VirtualAddress), target_section->SizeOfRawData);
+	memcpy(section_memory_chunk.data(),
+		reinterpret_cast<void*>(data.data() + target_section->VirtualAddress),
+		target_section->SizeOfRawData);
 
 	auto original_hash = generate_SHA256(section_memory_chunk);
+
 	while (true)
 	{
-		read_buffer(moduleBase, data.data(), module_size);
+		Sleep(1000);
+
+		if (!read_buffer(moduleBase, data.data(), module_size))
+		{
+			printf("[-] Failed to read module in loop\n");
+			continue;
+		}
+
 		nt_headers = get_headers(data.data());
 		target_section = get_section_by_name(nt_headers, ".text");
+
 		std::vector<uint8_t> new_section_memory_chunk(target_section->SizeOfRawData);
-		memcpy(new_section_memory_chunk.data(), reinterpret_cast<void*>(data.data() + target_section->VirtualAddress), target_section->SizeOfRawData);
+		memcpy(new_section_memory_chunk.data(),
+			reinterpret_cast<void*>(data.data() + target_section->VirtualAddress),
+			target_section->SizeOfRawData);
+
 		auto new_hash = generate_SHA256(new_section_memory_chunk);
 		if (original_hash != new_hash)
 		{
 			printf("[!] Different hash detected! Modification in the .text section occurred\n");
 		}
-		Sleep(1000);
+
+		auto new_caves = find_codecave(data.data(), module_size);
+
+		auto new_code_cave_hashes = generate_caves_hashes(new_caves);
+		if (compare_hashes(original_code_cave_hashes, new_code_cave_hashes))
+		{
+			printf("[!] Code cave content was modified — possible shellcode injection!\n");
+		}
 	}
-
-
 }
