@@ -413,7 +413,7 @@ Rather than storing only a single baseline hash, a more robust design takes a fu
 | `.text` hash | Yes — 5 patched bytes change the hash | Hash only; no location info |
 | Code cave hash | Yes — shellcode fills null region | Requires cave analysis to be correct |
 | PE-based section scan | Yes — locates exact modified section | Needs to run before attacker patches |
-| Byte-by-byte snapshot | Yes — pinpoints exact offset | Memory cost; needs trusted baseline |
+| Byte-by-byte snapshot | Yes — gets the exact offset | Memory cost; needs trusted baseline |
 
 No client-side detection is foolproof. A sufficiently motivated attacker can patch the detection code itself, run before the tool initializes, or restore original bytes between polling intervals. This is why **server-side validation is essential** and discussed in the next section.
 
