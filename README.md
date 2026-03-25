@@ -74,7 +74,7 @@ struct Bullet_Direction
     float   pos_origin_x;
     _vec3   pos_current;
     float   pos_current_x;
-    _vec3   velocity;
+    _vec3   trayectory;
     int     unk;
     int     unk1;
     int     param_a6;
@@ -108,9 +108,9 @@ Bullet_Direction *__fastcall fn_Calculate_Bullet_Direction(
   direction_pos_y = end_pos->y - start_pos->y;
   direction_pos_x = end_pos->x - start_pos->x;
   direction_pos_z = end_pos->z - start_pos->z;
-  direction_out->velocity.y = direction_pos_y;
-  direction_out->velocity.x = direction_pos_x;
-  direction_out->velocity.z = direction_pos_z;
+  direction_out->trayectory.y = direction_pos_y;
+  direction_out->trayectory.x = direction_pos_x;
+  direction_out->trayectory.z = direction_pos_z;
   direction_out->unk_2C = v16;
   inv_len = rsqrt(
               (float)((float)(direction_pos_y * direction_pos_y) + (float)(direction_pos_x * direction_pos_x))
